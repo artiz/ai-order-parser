@@ -159,9 +159,9 @@ class EmailProcessor:
             error = result['error'] if 'error' in result else None
             filename = result['filename']
             
-            body += f"=== Invoice {i}: {filename} ===\n"
+            body += f"## Invoice {i}: {filename}\n"
             if error:
-                body += f"Error processing this invoice: {error}\n\n"
+                body += f"Processing error: {error}\n\n"
                 continue
             
             body += f"Invoice Number: {parsed_data.get('invoice_number', 'N/A')}\n"
@@ -176,7 +176,7 @@ class EmailProcessor:
                     title = item.get('title', 'N/A')
                     quantity = item.get('quantity', 'N/A')
                     price = item.get('price', 0)
-                    body += f"  - {title} (Qty: {quantity}, Price: {price})\n"
+                    body += f"    - {title} (Qty: {quantity}, Price: {price})\n"
             else:
                 body += "Items: None found\n"
             
