@@ -1,21 +1,3 @@
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.4"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
 # Variables
 variable "aws_region" {
   description = "AWS region"
@@ -46,6 +28,13 @@ variable "email_address" {
   type        = string
   default     = "invoice-bot@katechat.tech"
 }
+
+variable "result_email_address" {
+  description = "Email address to send results to"
+  type        = string
+  default     = "artem.kustikov@gmail.com"
+}
+
 
 # Local variables
 locals {

@@ -1,6 +1,3 @@
-# Data source for current AWS account
-data "aws_caller_identity" "current" {}
-
 # IAM role for Lambda function
 resource "aws_iam_role" "lambda_role" {
   name = "${local.function_name}-lambda-role"
@@ -47,25 +44,11 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
         Action = [
           "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
-        ]
-        Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-pro-v1:0"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
+          "bedrock:InvokeModelWithResponseStream",
           "bedrock:Converse",
           "bedrock:ConverseStream"
         ]
-        Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-micro-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-pro-v1:0"
-        ]
+        Resource = "*"
       },
       {
         Effect = "Allow"
@@ -74,11 +57,6 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "ses:SendRawEmail"
         ]
         Resource = "*"
-        Condition = {
-          StringEquals = {
-            "ses:FromAddress" = var.email_address
-          }
-        }
       }
     ]
   })

@@ -19,6 +19,16 @@ resource "aws_ses_domain_identity_verification" "main" {
   depends_on = [aws_route53_record.ses_verification]
 }
 
+# SES email identity (for sending emails)
+resource "aws_ses_email_identity" "invoice_bot" {
+  email = var.email_address
+}
+
+# SES email identity for result emails
+resource "aws_ses_email_identity" "result_email" {
+  email = var.result_email_address
+}
+
 # SES DKIM
 resource "aws_ses_domain_dkim" "main" {
   domain = aws_ses_domain_identity.main.domain

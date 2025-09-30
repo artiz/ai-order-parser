@@ -63,8 +63,8 @@ For local development (`.env` file):
 - `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
 
 For Lambda deployment (automatically set):
-- `AWS_REGION`: AWS region (default: us-east-1)
-- `SES_S3_BUCKET`: S3 bucket where SES stores emails
+- `REGION`: AWS region (default: us-east-1)
+- `S3_BUCKET`: S3 bucket where SES stores emails
 - `FROM_EMAIL`: Email address to send results from (default: invoice-bot@katechat.tech)
 
 ## Output Format

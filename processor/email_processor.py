@@ -55,24 +55,28 @@ class EmailProcessor:
         return pdf_attachments
     
     def send_results_email(self, to_email: str, results: List[Dict[str, Any]], 
-                          original_pdfs: List[Tuple[bytes, str]]):
+                          original_pdfs: List[Tuple[bytes, str]], sender_email: str = None):
         """
-        Send results back to the sender via email.
+        Send results to the configured recipient email.
         
         Args:
             to_email: Recipient email address
             results: List of parsing results
             original_pdfs: List of original PDF files (data, filename)
+            sender_email: Original sender's email address (for context)
         """
         try:
             # Create email message
             msg = MIMEMultipart()
-            msg['Subject'] = 'Invoice Processing Results'
+            subject = f'Invoice Processing Results'
+            if sender_email:
+                subject += f' - from {sender_email}'
+            msg['Subject'] = subject
             msg['From'] = self.from_email
             msg['To'] = to_email
             
             # Create email body
-            body_text = self._create_email_body(results)
+            body_text = self._create_email_body(results, sender_email)
             msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
             
             # Attach original PDFs
@@ -106,18 +110,60 @@ class EmailProcessor:
             logger.error(f"Error creating/sending email: {str(e)}")
             raise
     
-    def _create_email_body(self, results: List[Dict[str, Any]]) -> str:
+    def send_error_email(self, to_email: str, error_message: str):
+        """
+        Send error notification email to the sender.
+        
+        Args:
+            to_email: Recipient email address
+            error_message: Error message to include in the email
+        """
+        try:
+            # Create email message
+            msg = MIMEMultipart()
+            msg['Subject'] = 'Invoice Processing Error'
+            msg['From'] = self.from_email
+            msg['To'] = to_email
+            
+            # Attach error message as email body
+            msg.attach(MIMEText(error_message, 'plain', 'utf-8'))
+            
+            # Send email
+            self.ses_client.send_raw_email(
+                Source=self.from_email,
+                Destinations=[to_email],
+                RawMessage={'Data': msg.as_string()}
+            )
+            
+            logger.info(f"Successfully sent error notification email to {to_email}")
+            
+        except ClientError as e:
+            logger.error(f"Error sending error email via SES: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Error creating/sending error email: {str(e)}")
+            raise
+    
+    def _create_email_body(self, results: List[Dict[str, Any]], sender_email: str = None) -> str:
         """
         Create the email body text with processing results.
         """
         body = "Hello,\n\n"
-        body += "Your invoice processing is complete. Please find the results below:\n\n"
+        if sender_email:
+            body += f"Invoice processing complete for email from: {sender_email}\n\n"
+        else:
+            body += "Invoice processing complete. Please find the results below:\n\n"
         
         for i, result in enumerate(results, 1):
-            parsed_data = result['parsed_data']
+            parsed_data = result['parsed_data'] if 'parsed_data' in result else dict()
+            error = result['error'] if 'error' in result else None
             filename = result['filename']
             
             body += f"=== Invoice {i}: {filename} ===\n"
+            if error:
+                body += f"Error processing this invoice: {error}\n\n"
+                continue
+            
             body += f"Invoice Number: {parsed_data.get('invoice_number', 'N/A')}\n"
             body += f"Issuer: {parsed_data.get('issuer_name', 'N/A')}\n"
             body += f"Receiver: {parsed_data.get('receiver_name', 'N/A')}\n"

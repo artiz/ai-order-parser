@@ -31,6 +31,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "ses_emails" {
     id     = "delete_old_emails"
     status = "Enabled"
 
+    filter {
+      prefix = "emails/"
+    }
+
     expiration {
       days = 30
     }

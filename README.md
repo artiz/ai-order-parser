@@ -193,8 +193,8 @@ Approximate AWS costs for moderate usage (100 invoices/month):
 
 ### Environment Variables (Lambda)
 
-- `AWS_REGION`: Deployment region (default: eu-central-1)
-- `SES_S3_BUCKET`: S3 bucket for email storage (auto-generated)
+- `REGION`: Deployment region (default: eu-central-1)
+- `S3_BUCKET`: S3 bucket for email storage (auto-generated)
 - `FROM_EMAIL`: Sender email address (invoice-bot@katechat.tech)
 
 ### Terraform Variables

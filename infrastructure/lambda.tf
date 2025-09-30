@@ -3,7 +3,7 @@ data "archive_file" "lambda_zip" {
   type        = "zip"
   source_dir  = "../processor"
   output_path = local.lambda_zip_path
-  excludes    = ["__pycache__", "*.pyc", ".git", "README.md", "test_local.py"]
+  excludes    = ["__pycache__", "*.pyc", ".git", "README.md", "test_local.py", ".env", ".env.example", "validate_config.py", "install_deps.sh"]
 }
 
 # Lambda function
@@ -19,9 +19,10 @@ resource "aws_lambda_function" "invoice_parser" {
 
   environment {
     variables = {
-      AWS_REGION      = var.aws_region
-      SES_S3_BUCKET   = aws_s3_bucket.ses_emails.bucket
+      REGION      = var.aws_region
+      S3_BUCKET   = aws_s3_bucket.ses_emails.bucket
       FROM_EMAIL      = var.email_address
+      RESULT_EMAIL    = var.result_email_address
     }
   }
 

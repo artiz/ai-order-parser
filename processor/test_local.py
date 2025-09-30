@@ -27,11 +27,11 @@ AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 
 from pdf_parser import PDFParser
 
-def create_boto3_client(service_name, region_name=None):
+def create_boto3_client(service_name):
     """Create boto3 client with environment credentials if available."""
-    kwargs = {}
-    if region_name:
-        kwargs['region_name'] = region_name
+    kwargs = {
+        'region_name': AWS_REGION
+    }
     if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
         kwargs['aws_access_key_id'] = AWS_ACCESS_KEY_ID
         kwargs['aws_secret_access_key'] = AWS_SECRET_ACCESS_KEY
@@ -42,16 +42,10 @@ def test_single_pdf(pdf_path: str):
     Test parsing a single PDF file.
     """
     print(f"Testing PDF: {pdf_path}")
-    print(f"Using AWS Region: {AWS_REGION}")
-    
-    if AWS_ACCESS_KEY_ID:
-        print(f"Using AWS Access Key ID: {AWS_ACCESS_KEY_ID[:10]}...")
-    else:
-        print("Using default AWS credentials")
     
     # Initialize AWS clients
     try:
-        bedrock_client = create_boto3_client('bedrock-runtime', AWS_REGION)
+        bedrock_client = create_boto3_client('bedrock-runtime')
     except Exception as e:
         print(f"Error initializing AWS client: {e}")
         print("Make sure you have AWS credentials configured (.env file or aws configure)")
