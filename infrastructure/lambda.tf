@@ -3,7 +3,7 @@ data "archive_file" "lambda_zip" {
   type        = "zip"
   source_dir  = "../processor"
   output_path = local.lambda_zip_path
-  excludes    = ["__pycache__", "*.pyc", ".git", "README.md", "test_local.py", ".env", ".env.example", "validate_config.py", "install_deps.sh"]
+  excludes    = ["__pycache__", "*.pyc", ".git", "README.md", "test_local.py", ".env", ".env.example"]
 }
 
 # Lambda function

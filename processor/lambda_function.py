@@ -27,6 +27,8 @@ logger = logging.getLogger()
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logger.setLevel(getattr(logging, log_level, logging.INFO))
 
+RESULT_EMAIL = os.environ.get('RESULT_EMAIL')
+
 # Get AWS configuration from environment variables
 # aws_region = os.environ.get('AWS_REGION', 'eu-central-1')
 # aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
@@ -61,12 +63,11 @@ def extract_sender_email(mail_obj: Dict[str, Any]) -> Optional[str]:
         logger.error(f"Error extracting sender email: {str(e)}")
         return None
 
-def send_error_email(email_processor: EmailProcessor, sender_email: str, error_message: str):
+def format_error_email_body(error_message: str):
     """
-    Send error notification email to sender.
+    Format error notification email body.
     """
-    try:
-        error_body = f"""
+    error_body = f"""
 Hello,
 
 We encountered an error while processing your invoice email. Please find the error details below:
@@ -86,27 +87,23 @@ Best regards,
 Invoice Processing Bot
 katechat.tech
 """
+    return error_body
         
-        email_processor.send_error_email(sender_email, error_body)
-        logger.info(f"Sent error notification to {sender_email}")
-        
-    except Exception as e:
-        logger.error(f"Failed to send error email: {str(e)}")
-
 def lambda_handler(event, context):
     """
     Main Lambda handler for processing SES emails with PDF attachments.
     """
+    
+    # Initialize AWS clients
+    bedrock_client = create_boto3_client('bedrock-runtime')
+    ses_client = create_boto3_client('ses')
+    
+    # Initialize processors
+    pdf_parser = PDFParser(bedrock_client)
+    email_processor = EmailProcessor(ses_client)
+    
     try:
         logger.info(f"Received event: {json.dumps(event, default=str)}")
-        
-        # Initialize AWS clients
-        bedrock_client = create_boto3_client('bedrock-runtime')
-        ses_client = create_boto3_client('ses')
-        
-        # Initialize processors
-        pdf_parser = PDFParser(bedrock_client)
-        email_processor = EmailProcessor(ses_client)
         
         # Process SES event
         results = []
@@ -134,13 +131,13 @@ def lambda_handler(event, context):
         try:
             mail_obj = event.get('Records', [{}])[0].get('ses', {}).get('mail', {})
             sender_email = extract_sender_email(mail_obj)
-            result_email = os.environ.get('RESULT_EMAIL')
             
-            if result_email:
-                ses_client = create_boto3_client('ses')
-                error_processor = EmailProcessor(ses_client)
+            if RESULT_EMAIL:
                 error_with_context = f"Error processing email from {sender_email or 'unknown'}: {error_msg}"
-                send_error_email(error_processor, result_email, error_with_context)
+                email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(error_with_context))
+            else:
+                logger.warning("RESULT_EMAIL not configured; cannot send error notification.")
+                
         except Exception as notification_error:
             logger.error(f"Failed to send error notification: {str(notification_error)}")
         
@@ -248,9 +245,8 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
         if not email_message:
             error_msg = f"Could not retrieve email content from S3 for email from {sender_email or 'unknown'}"
             logger.error(error_msg)
-            result_email = os.environ.get('RESULT_EMAIL')
-            if result_email:
-                send_error_email(email_processor, result_email, error_msg)
+            if RESULT_EMAIL:
+                email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(error_msg))
             return {
                 'statusCode': 400,
                 'message': error_msg,
@@ -264,9 +260,8 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
             # No PDFs found - send informational email
             no_pdf_msg = f"No PDF attachments found in email from {sender_email or 'unknown'}. Please ensure PDF invoices are attached."
             logger.warning(no_pdf_msg)
-            result_email = os.environ.get('RESULT_EMAIL')
-            if result_email:
-                send_error_email(email_processor, result_email, no_pdf_msg)
+            if RESULT_EMAIL:
+                email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(no_pdf_msg))
             return {
                 'statusCode': 200,
                 'message': no_pdf_msg,
@@ -299,16 +294,15 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
                 })
         
         # Send results to configured result email address
-        result_email = os.environ.get('RESULT_EMAIL')
-        if result_email and results:
+        if RESULT_EMAIL and results:
             try:
                 email_processor.send_results_email(
-                    to_email=result_email,
+                    to_email=RESULT_EMAIL,
                     results=results,
                     original_pdfs=pdf_attachments,
                     sender_email=sender_email  # Include sender info for context
                 )
-                logger.info(f"Sent results email to {result_email} (from {sender_email})")
+                logger.info(f"Sent results email to {RESULT_EMAIL} (from {sender_email})")
             except Exception as email_error:
                 logger.error(f"Failed to send results email: {str(email_error)}")
                 # Still continue - we processed the PDFs successfully
@@ -327,10 +321,9 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
         logger.error(error_msg, exc_info=True)
         
         # Send error notification to result email if available
-        result_email = os.environ.get('RESULT_EMAIL')
-        if result_email:
+        if RESULT_EMAIL:
             error_with_context = f"Error processing email from {sender_email or 'unknown'}: {error_msg}"
-            send_error_email(email_processor, result_email, error_with_context)
+            email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(error_with_context))
         
         return {
             'statusCode': 500,
