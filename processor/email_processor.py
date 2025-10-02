@@ -19,6 +19,34 @@ class EmailProcessor:
         self.ses_client = ses_client
         self.from_email = os.environ.get('FROM_EMAIL', 'invoice-bot@katechat.tech')
     
+    def extract_email_content(self, msg: email.message.EmailMessage) -> str:
+        """
+        Extract plain text content from email message.
+        
+        Returns:
+            Extracted email text content
+        """
+        email_text = ""
+        
+        try:
+            if msg.is_multipart():
+                for part in msg.walk():
+                    content_type = part.get_content_type()
+                    content_disposition = str(part.get("Content-Disposition"))
+                    
+                    if content_type == "text/plain" and "attachment" not in content_disposition:
+                        charset = part.get_content_charset() or 'utf-8'
+                        email_text += part.get_payload(decode=True).decode(charset, errors='replace')
+            else:
+                charset = msg.get_content_charset() or 'utf-8'
+                email_text = msg.get_payload(decode=True).decode(charset, errors='replace')
+        
+        except Exception as e:
+            logger.error(f"Error extracting email content: {str(e)}")
+            raise
+        
+        return email_text.strip()
+    
     def extract_pdf_attachments(self, msg: email.message.EmailMessage) -> List[Tuple[bytes, str]]:
         """
         Extract PDF attachments from email message.
@@ -85,15 +113,12 @@ class EmailProcessor:
                 pdf_attachment.add_header('Content-Disposition', 'attachment', filename=filename)
                 msg.attach(pdf_attachment)
             
-            # Attach JSON results
-            for i, result in enumerate(results):
-                json_filename = f"parsed_{result['filename'].replace('.pdf', '')}.json"
-                json_data = json.dumps(result['parsed_data'], indent=2, ensure_ascii=False).encode('utf-8')
-                
-                json_attachment = MIMEApplication(json_data, 'json')
-                json_attachment.add_header('Content-Disposition', 'attachment', filename=json_filename)
-                msg.attach(json_attachment)
-            
+            # Attach JSON result
+            json_data = json.dumps(results, indent=2, ensure_ascii=False).encode('utf-8')
+            json_attachment = MIMEApplication(json_data, 'json')
+            json_attachment.add_header('Content-Disposition', 'attachment', filename='parsed_invoices.json')
+            msg.attach(json_attachment)
+        
             # Send email
             self.ses_client.send_raw_email(
                 Source=self.from_email,
@@ -154,8 +179,8 @@ class EmailProcessor:
         else:
             body += "Invoice processing complete. Please find the results below:\n\n"
         
-        for i, result in enumerate(results, 1):
-            parsed_data = result['parsed_data'] if 'parsed_data' in result else dict()
+        for i, result in enumerate(results):
+            parsed_data = result or dict()
             error = result['error'] if 'error' in result else None
             filename = result['filename']
             
@@ -184,7 +209,7 @@ class EmailProcessor:
         
         body += "Attachments included:\n"
         body += "- Original PDF files\n"
-        body += "- Parsed JSON data for each invoice\n\n"
+        body += "- Parsed invoices JSON data\n\n"
         body += "Best regards,\n"
         body += "Invoice Processing Bot\n"
         body += "katechat.tech"

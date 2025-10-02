@@ -61,8 +61,10 @@ def test_single_pdf(pdf_path: str):
         
         print(f"PDF size: {len(pdf_data)} bytes")
         
+        filename = os.path.basename(pdf_path)
+        
         # Parse PDF
-        result = pdf_parser.parse_invoice_pdf(pdf_data)
+        result = pdf_parser.parse_invoice([(pdf_data, filename)], "")
         
         print("\n" + "="*50)
         print("PARSING RESULT:")

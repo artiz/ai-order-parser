@@ -255,16 +255,17 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
         
         # Extract PDF attachments
         pdf_attachments = email_processor.extract_pdf_attachments(email_message)
+        email_text = email_processor.extract_email_content(email_message)
         
-        if not pdf_attachments:
+        if not pdf_attachments and not email_text:
             # No PDFs found - send informational email
-            no_pdf_msg = f"No PDF attachments found in email from {sender_email or 'unknown'}. Please ensure PDF invoices are attached."
-            logger.warning(no_pdf_msg)
+            no_data_msg = f"No PDF attachments nor text data found in email from {sender_email or 'unknown'}."
+            logger.warning(no_data_msg)
             if RESULT_EMAIL:
-                email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(no_pdf_msg))
+                email_processor.send_error_email(RESULT_EMAIL, format_error_email_body(no_data_msg))
             return {
                 'statusCode': 200,
-                'message': no_pdf_msg,
+                'message': no_data_msg,
                 'messageId': message_id,
                 'processed_attachments': 0
             }
@@ -273,25 +274,16 @@ def process_ses_mail(record: Dict[str, Any], pdf_parser: PDFParser, email_proces
         
         # Process each PDF attachment
         results = []
-        for pdf_data, filename in pdf_attachments:
-            try:
-                logger.info(f"Processing PDF: {filename}")
-                parsed_data = pdf_parser.parse_invoice_pdf(pdf_data)
-                results.append({
-                    'filename': filename,
-                    'parsed_data': parsed_data,
-                    'status': 'success'
-                })
-                logger.info(f"Successfully parsed {filename}")
-                
-            except Exception as pdf_error:
-                logger.error(f"Error parsing {filename}: {str(pdf_error)}")
-                results.append({
-                    'filename': filename,
-                    'error': str(pdf_error),
-                    'parsed_data': dict(),
-                    'status': 'error'
-                })
+        try:
+            results = pdf_parser.parse_invoice(pdf_attachments, email_text)
+            
+        except Exception as pdf_error:
+            logger.error(f"Error parsing email: {str(pdf_error)}")
+            results.append({
+                'error': str(pdf_error),
+                'parsed_data': dict(),
+                'status': 'error'
+            })
         
         # Send results to configured result email address
         if RESULT_EMAIL and results:
