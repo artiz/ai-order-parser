@@ -182,7 +182,7 @@ class EmailProcessor:
         for i, result in enumerate(results):
             parsed_data = result or dict()
             error = result['error'] if 'error' in result else None
-            filename = result['filename']
+            filename = result.get('filename', 'unknown.pdf')
             
             body += f"## Invoice {i}: {filename}\n"
             if error:
